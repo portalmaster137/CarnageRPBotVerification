@@ -28,8 +28,16 @@ export const client = new Client({
     ]
 });
 
+// Enhanced interface for game signup tracking
+interface GameSignupData {
+    gameName: string;
+    timestamp: string;
+    maxPlayers?: number;
+    players: Set<string>; // Store user IDs
+}
+
 // Store game signup messages for reaction tracking
-const gameSignupMessages = new Map<string, { gameName: string, timestamp: string }>();
+const gameSignupMessages = new Map<string, GameSignupData>();
 
 export async function sendPersistentButton(): Promise<void> {
     try {
@@ -67,12 +75,45 @@ export async function sendPersistentButton(): Promise<void> {
     }
 }
 
-async function updateGameSignupEmbed(message: Message, gameName: string): Promise<void> {
+async function updateGameSignupEmbed(message: Message, gameData: GameSignupData): Promise<void> {
     try {
-        const reaction = message.reactions.cache.get('🎮');
-        const userCount = reaction ? reaction.count - 1 : 0; // Subtract 1 for bot's own reaction
+        const userCount = gameData.players.size;
+        const maxPlayers = gameData.maxPlayers;
+        
+        // Get user display names
+        let playersList = 'No players signed up yet';
+        if (userCount > 0) {
+            const playerNames: string[] = [];
+            for (const userId of gameData.players) {
+                try {
+                    const user = await client.users.fetch(userId);
+                    playerNames.push(user.displayName || user.username);
+                } catch (error) {
+                    logger.error(`Error fetching user ${userId}:`, error);
+                    playerNames.push('Unknown User');
+                }
+            }
+            playersList = playerNames.join('\n');
+        }
+        
+        // Build attendees field value
+        let attendeesValue = `${userCount} player${userCount !== 1 ? 's' : ''} signed up`;
+        if (maxPlayers) {
+            attendeesValue += ` (${userCount}/${maxPlayers})`;
+        }
+        
+        // Determine embed color based on capacity
+        let embedColor = 0x00ff00; // Green by default
+        if (maxPlayers) {
+            if (userCount >= maxPlayers) {
+                embedColor = 0xff0000; // Red when full
+            } else if (userCount >= maxPlayers * 0.75) {
+                embedColor = 0xff9900; // Orange when 75% full
+            }
+        }
         
         const embed = EmbedBuilder.from(message.embeds[0])
+            .setColor(embedColor)
             .setFields([
                 {
                     name: '📅 When',
@@ -81,26 +122,38 @@ async function updateGameSignupEmbed(message: Message, gameName: string): Promis
                 },
                 {
                     name: '👥 Attendees',
-                    value: `${userCount} player${userCount !== 1 ? 's' : ''} signed up`,
+                    value: attendeesValue,
                     inline: true
                 },
                 {
+                    name: '🎮 Players',
+                    value: playersList,
+                    inline: false
+                },
+                {
                     name: '📝 How to Join',
-                    value: 'React with 🎮 to sign up for this session!',
+                    value: maxPlayers && userCount >= maxPlayers 
+                        ? '❌ This session is full!' 
+                        : 'React with 🎮 to sign up for this session!',
                     inline: false
                 }
             ]);
         
         await message.edit({ embeds: [embed] });
-        logger.info(`Updated game signup embed for "${gameName}" - ${userCount} attendees`);
+        logger.info(`Updated game signup embed for "${gameData.gameName}" - ${userCount}${maxPlayers ? `/${maxPlayers}` : ''} attendees`);
     } catch (error) {
         logger.error('Error updating game signup embed:', error);
     }
 }
 
-export function addGameSignupMessage(messageId: string, gameName: string, timestamp: string): void {
-    gameSignupMessages.set(messageId, { gameName, timestamp });
-    logger.info(`Added game signup message tracking: ${messageId} - ${gameName}`);
+export function addGameSignupMessage(messageId: string, gameName: string, timestamp: string, maxPlayers?: number): void {
+    gameSignupMessages.set(messageId, { 
+        gameName, 
+        timestamp, 
+        maxPlayers,
+        players: new Set<string>()
+    });
+    logger.info(`Added game signup message tracking: ${messageId} - ${gameName}${maxPlayers ? ` (max: ${maxPlayers})` : ''}`);
 }
 
 export function setupDiscordEventHandlers(): void {
@@ -140,10 +193,21 @@ export function setupDiscordEventHandlers(): void {
             if (user.bot) return;
 
             // Check if this is a game signup message
-            const gameSignup = gameSignupMessages.get(reaction.message.id);
-            if (gameSignup && reaction.emoji.name === '🎮') {
-                logger.info(`${user.tag} signed up for game: ${gameSignup.gameName}`);
-                await updateGameSignupEmbed(reaction.message as Message, gameSignup.gameName);
+            const gameData = gameSignupMessages.get(reaction.message.id);
+            if (gameData && reaction.emoji.name === '🎮') {
+                // Check if session is full
+                if (gameData.maxPlayers && gameData.players.size >= gameData.maxPlayers) {
+                    // Remove the reaction if the session is full
+                    await reaction.users.remove(user.id);
+                    logger.info(`${user.tag} tried to sign up for full game: ${gameData.gameName}`);
+                    return;
+                }
+                
+                // Add user to players set
+                gameData.players.add(user.id);
+                logger.info(`${user.tag} signed up for game: ${gameData.gameName} (${gameData.players.size}${gameData.maxPlayers ? `/${gameData.maxPlayers}` : ''})`);
+                
+                await updateGameSignupEmbed(reaction.message as Message, gameData);
             }
         } catch (error) {
             logger.error('Error handling reaction add:', error);
@@ -165,10 +229,13 @@ export function setupDiscordEventHandlers(): void {
             if (user.bot) return;
 
             // Check if this is a game signup message
-            const gameSignup = gameSignupMessages.get(reaction.message.id);
-            if (gameSignup && reaction.emoji.name === '🎮') {
-                logger.info(`${user.tag} cancelled signup for game: ${gameSignup.gameName}`);
-                await updateGameSignupEmbed(reaction.message as Message, gameSignup.gameName);
+            const gameData = gameSignupMessages.get(reaction.message.id);
+            if (gameData && reaction.emoji.name === '🎮') {
+                // Remove user from players set
+                gameData.players.delete(user.id);
+                logger.info(`${user.tag} cancelled signup for game: ${gameData.gameName} (${gameData.players.size}${gameData.maxPlayers ? `/${gameData.maxPlayers}` : ''})`);
+                
+                await updateGameSignupEmbed(reaction.message as Message, gameData);
             }
         } catch (error) {
             logger.error('Error handling reaction remove:', error);
