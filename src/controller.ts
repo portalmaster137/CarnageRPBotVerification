@@ -248,6 +248,23 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
                     </div>
                     
                     <div>
+                        <label for="maxPlayers" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Max Players:</label>
+                        <input 
+                            type="number" 
+                            id="maxPlayers" 
+                            name="maxPlayers" 
+                            min="1" 
+                            max="100" 
+                            required 
+                            style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 0.5rem; font-size: 1rem;"
+                            placeholder="e.g., 32"
+                        />
+                        <small style="color: #666; font-size: 0.9rem;">
+                            Maximum number of players allowed in this session
+                        </small>
+                    </div>
+                    
+                    <div>
                         <label for="gameDescription" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Description (Optional):</label>
                         <textarea 
                             id="gameDescription" 
@@ -285,6 +302,7 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
                 const gameData = {
                     gameName: formData.get('gameName'),
                     discordTimestamp: formData.get('discordTimestamp'),
+                    maxPlayers: parseInt(formData.get('maxPlayers')),
                     gameDescription: formData.get('gameDescription') || ''
                 };
                 
@@ -488,10 +506,14 @@ export async function handleLogs(req: Request, res: Response): Promise<void> {
 
 export async function handleCreateGameSignup(req: Request, res: Response): Promise<Response> {
     try {
-        const { gameName, discordTimestamp, gameDescription } = req.body;
+        const { gameName, discordTimestamp, maxPlayers, gameDescription } = req.body;
         
-        if (!gameName || !discordTimestamp) {
-            return res.status(400).json({ message: 'Game name and Discord timestamp are required' });
+        if (!gameName || !discordTimestamp || !maxPlayers) {
+            return res.status(400).json({ message: 'Game name, Discord timestamp, and max players are required' });
+        }
+        
+        if (maxPlayers < 1 || maxPlayers > 100) {
+            return res.status(400).json({ message: 'Max players must be between 1 and 100' });
         }
         
         // Validate Discord timestamp format
@@ -524,13 +546,18 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
                     inline: true
                 },
                 {
-                    name: '👥 Attendees',
-                    value: '0 players signed up',
+                    name: '👥 Players',
+                    value: `0/${maxPlayers}`,
                     inline: true
                 },
                 {
                     name: '📝 How to Join',
                     value: 'React with 🎮 to sign up for this session!',
+                    inline: false
+                },
+                {
+                    name: '🎯 Signed Up Players',
+                    value: '*No players signed up yet*',
                     inline: false
                 }
             ])
@@ -546,9 +573,9 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
         await message.react('🎮');
         
         // Track this message for reaction updates
-        addGameSignupMessage(message.id, gameName, discordTimestamp);
+        addGameSignupMessage(message.id, gameName, discordTimestamp, maxPlayers);
         
-        logger.info(`Game signup created: ${gameName} at ${discordTimestamp}`);
+        logger.info(`Game signup created: ${gameName} at ${discordTimestamp} (max ${maxPlayers} players)`);
         
         return res.json({ 
             message: 'Game signup created successfully',
@@ -560,4 +587,4 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
         logger.error('Error creating game signup:', error);
         return res.status(500).json({ message: 'Failed to create game signup' });
     }
-}
+}   
