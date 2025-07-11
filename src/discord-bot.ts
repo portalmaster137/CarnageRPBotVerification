@@ -34,6 +34,7 @@ interface GameSignupData {
     timestamp: string;
     maxPlayers?: number;
     players: Set<string>; // Store user IDs
+    pingEveryone?: boolean;
 }
 
 // Store game signup messages for reaction tracking
@@ -146,14 +147,15 @@ async function updateGameSignupEmbed(message: Message, gameData: GameSignupData)
     }
 }
 
-export function addGameSignupMessage(messageId: string, gameName: string, timestamp: string, maxPlayers?: number): void {
+export function addGameSignupMessage(messageId: string, gameName: string, timestamp: string, maxPlayers?: number, pingEveryone?: boolean): void {
     gameSignupMessages.set(messageId, { 
         gameName, 
         timestamp, 
         maxPlayers,
-        players: new Set<string>()
+        players: new Set<string>(),
+        pingEveryone
     });
-    logger.info(`Added game signup message tracking: ${messageId} - ${gameName}${maxPlayers ? ` (max: ${maxPlayers})` : ''}`);
+    logger.info(`Added game signup message tracking: ${messageId} - ${gameName}${maxPlayers ? ` (max: ${maxPlayers})` : ''}${pingEveryone ? ' with @everyone ping' : ''}`);
 }
 
 export function setupDiscordEventHandlers(): void {

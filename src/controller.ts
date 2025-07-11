@@ -265,6 +265,21 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
                     </div>
                     
                     <div>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; cursor: pointer;">
+                            <input 
+                                type="checkbox" 
+                                id="pingEveryone" 
+                                name="pingEveryone"
+                                style="width: 18px; height: 18px; accent-color: #17a2b8;"
+                            />
+                            <span style="font-weight: bold;">📢 Ping Everyone (@everyone)</span>
+                        </label>
+                        <small style="color: #666; font-size: 0.9rem; margin-left: 23px; display: block; margin-top: -0.5rem;">
+                            This will notify all server members about the new game session
+                        </small>
+                    </div>
+                    
+                    <div>
                         <label for="gameDescription" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Description (Optional):</label>
                         <textarea 
                             id="gameDescription" 
@@ -303,6 +318,7 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
                     gameName: formData.get('gameName'),
                     discordTimestamp: formData.get('discordTimestamp'),
                     maxPlayers: parseInt(formData.get('maxPlayers')),
+                    pingEveryone: formData.get('pingEveryone') === 'on',
                     gameDescription: formData.get('gameDescription') || ''
                 };
                 
@@ -318,7 +334,7 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
                     
                     if (response.ok) {
                         closeModal();
-                        alert('Game signup created successfully!');
+                        alert('Game signup created successfully!' + (gameData.pingEveryone ? ' Everyone has been notified.' : ''));
                         loadDashboardData(); // Refresh dashboard
                     } else {
                         const error = await response.json();
@@ -506,7 +522,7 @@ export async function handleLogs(req: Request, res: Response): Promise<void> {
 
 export async function handleCreateGameSignup(req: Request, res: Response): Promise<Response> {
     try {
-        const { gameName, discordTimestamp, maxPlayers, gameDescription } = req.body;
+        const { gameName, discordTimestamp, maxPlayers, pingEveryone, gameDescription } = req.body;
         
         if (!gameName || !discordTimestamp || !maxPlayers) {
             return res.status(400).json({ message: 'Game name, Discord timestamp, and max players are required' });
@@ -566,25 +582,32 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
             .setTimestamp()
             .setFooter({ text: 'CarnageRP Game Scheduler' });
         
-        // Send the embed
-        const message = await (channel as TextChannel).send({ embeds: [embed] });
+        // Prepare message content with optional @everyone ping
+        const messageContent = pingEveryone ? '@everyone' : undefined;
+        
+        // Send the embed with optional ping
+        const message = await (channel as TextChannel).send({ 
+            content: messageContent,
+            embeds: [embed] 
+        });
         
         // Add reaction for signup
         await message.react('🎮');
         
         // Track this message for reaction updates
-        addGameSignupMessage(message.id, gameName, discordTimestamp, maxPlayers);
+        addGameSignupMessage(message.id, gameName, discordTimestamp, maxPlayers, pingEveryone);
         
-        logger.info(`Game signup created: ${gameName} at ${discordTimestamp} (max ${maxPlayers} players)`);
+        logger.info(`Game signup created: ${gameName} at ${discordTimestamp} (max ${maxPlayers} players)${pingEveryone ? ' with @everyone ping' : ''}`);
         
         return res.json({ 
             message: 'Game signup created successfully',
             messageId: message.id,
-            channelId: channel.id
+            channelId: channel.id,
+            pingEveryone: pingEveryone || false
         });
         
     } catch (error) {
         logger.error('Error creating game signup:', error);
         return res.status(500).json({ message: 'Failed to create game signup' });
     }
-}   
+}
