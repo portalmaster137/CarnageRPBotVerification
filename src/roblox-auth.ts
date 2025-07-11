@@ -7,7 +7,7 @@ export async function handleRobloxAuth(req: Request, res: Response): Promise<Res
     const { code, state } = req.query;
     
     if (!code || !state) {
-        return res.status(400).send('Missing code or state parameter');
+        return res.status(400).send('Missing parameter.');
     }
 
     let userId: string | undefined;
@@ -15,7 +15,7 @@ export async function handleRobloxAuth(req: Request, res: Response): Promise<Res
         userId = await verifyStateJWT(state as string);
     } catch (error) {
         logger.error('Error verifying state JWT:', error);
-        return res.status(400).send('Invalid or expired state token');
+        return res.status(400).send('Invalid or expired state token. Please try again.');
     }
 
     try {
