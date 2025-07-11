@@ -1,4 +1,4 @@
-// src/express-server.ts - Updated with DM routes
+// src/express-server.ts - Updated with mark as started route
 import express, { Request, Response } from 'express';
 import { engine } from 'express-handlebars';
 import path from 'path';
@@ -17,7 +17,8 @@ import {
     handleLogs,
     handleCreateGameSignup,
     handleGetGameSignups,
-    handleSendGameDM
+    handleSendGameDM,
+    handleMarkGameStarted
 } from './controllers/controller';
 
 export const app = express();
@@ -99,6 +100,7 @@ export function setupRoutes(): void {
     app.post('/controller/api/create-game-signup', requireAuth, handleCreateGameSignup);
     app.get('/controller/api/game-signups', requireAuth, handleGetGameSignups);
     app.post('/controller/api/send-game-dm', requireAuth, handleSendGameDM);
+    app.post('/controller/api/mark-game-started', requireAuth, handleMarkGameStarted);
     app.get('/controller/api/system-info', requireAuth, handleSystemInfo);
     app.get('/controller/api/dashboard-data', requireAuth, handleDashboardData);
     app.get('/controller/api/logs', requireAuth, handleLogs);

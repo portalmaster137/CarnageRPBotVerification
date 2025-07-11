@@ -1,4 +1,4 @@
-// src/controllers/controller.ts - Updated with DM functionality
+// src/controllers/controller.ts - Updated with mark as started functionality
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { logger } from '../config';
@@ -126,6 +126,37 @@ export async function handleGetGameSignups(req: Request, res: Response): Promise
     }
 }
 
+export async function handleMarkGameStarted(req: Request, res: Response): Promise<Response> {
+    try {
+        const { messageId } = req.body;
+        
+        // Validation
+        if (!messageId) {
+            return res.status(400).json({ 
+                message: 'Message ID is required' 
+            });
+        }
+        
+        const { markGameAsStarted } = await import('../discord-bot');
+        const result = await markGameAsStarted(messageId);
+        
+        if (result.success) {
+            logger.info(`Game marked as started via controller: ${messageId}`);
+            return res.json({
+                message: result.message
+            });
+        } else {
+            return res.status(400).json({ 
+                message: result.error || 'Failed to mark game as started'
+            });
+        }
+        
+    } catch (error) {
+        logger.error('Error marking game as started:', error);
+        return res.status(500).json({ message: 'Failed to mark game as started' });
+    }
+}
+
 export async function handleSendGameDM(req: Request, res: Response): Promise<Response> {
     try {
         const { messageId, subject, message } = req.body;
@@ -209,8 +240,9 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
             .addFields([
                 { name: '📅 When', value: `${discordTimestamp}`, inline: true },
                 { name: '👥 Players', value: `0/${maxPlayers}`, inline: true },
+                { name: '🎯 Status', value: 'Scheduled', inline: true },
                 { name: '📝 How to Join', value: 'React with 🎮 to sign up for this session!', inline: false },
-                { name: '🎯 Signed Up Players', value: '*No players signed up yet*', inline: false }
+                { name: '🎮 Signed Up Players', value: '*No players signed up yet*', inline: false }
             ])
             .setColor(0x00ff00)
             .setTimestamp()
