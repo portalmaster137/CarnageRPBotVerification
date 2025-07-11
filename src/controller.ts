@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { logger } from './config';
 import { baseTemplate } from './templates';
+import { TextChannel } from 'discord.js';
 
 // Generate random password on startup
 export const CONTROLLER_PASSWORD = crypto.randomBytes(16).toString('hex');
@@ -131,6 +132,15 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
             </button>
             
             <button 
+                onclick="showGameSignupForm()" 
+                style="padding: 1rem; background: #17a2b8; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold; transition: all 0.3s ease;"
+                onmouseover="this.style.transform='translateY(-2px)'"
+                onmouseout="this.style.transform='translateY(0)'"
+            >
+                🎮 Create Game Signup
+            </button>
+            
+            <button 
                 onclick="showSystemInfo()" 
                 style="padding: 1rem; background: #28a745; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold; transition: all 0.3s ease;"
                 onmouseover="this.style.transform='translateY(-2px)'"
@@ -204,6 +214,102 @@ export const controllerDashboardPage = (): string => baseTemplate('Controller Da
             } catch (error) {
                 alert('Error: ' + error.message);
             }
+        }
+
+        function showGameSignupForm() {
+            document.getElementById('modal-title').textContent = 'Create Game Signup';
+            document.getElementById('modal-content').innerHTML = \`
+                <form id="gameSignupForm" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div>
+                        <label for="gameName" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Game Name:</label>
+                        <input 
+                            type="text" 
+                            id="gameName" 
+                            name="gameName" 
+                            required 
+                            style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 0.5rem; font-size: 1rem;"
+                            placeholder="e.g., CarnageRP Session #42"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label for="discordTimestamp" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Discord Timestamp:</label>
+                        <input 
+                            type="text" 
+                            id="discordTimestamp" 
+                            name="discordTimestamp" 
+                            required 
+                            style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 0.5rem; font-size: 1rem;"
+                            placeholder="e.g., <t:1752257760:R>"
+                        />
+                        <small style="color: #666; font-size: 0.9rem;">
+                            Use Discord timestamp format. Generate at <a href="https://www.unixtimestamp.com/" target="_blank">unixtimestamp.com</a>
+                        </small>
+                    </div>
+                    
+                    <div>
+                        <label for="gameDescription" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Description (Optional):</label>
+                        <textarea 
+                            id="gameDescription" 
+                            name="gameDescription" 
+                            rows="3"
+                            style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 0.5rem; font-size: 1rem; resize: vertical;"
+                            placeholder="Additional details about the game session..."
+                        ></textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button 
+                            type="button" 
+                            onclick="closeModal()"
+                            style="flex: 1; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold;"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit"
+                            style="flex: 1; padding: 0.75rem; background: #17a2b8; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold;"
+                        >
+                            Create Signup
+                        </button>
+                    </div>
+                </form>
+            \`;
+            document.getElementById('modal').style.display = 'block';
+            
+            // Add form submit handler
+            document.getElementById('gameSignupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const gameData = {
+                    gameName: formData.get('gameName'),
+                    discordTimestamp: formData.get('discordTimestamp'),
+                    gameDescription: formData.get('gameDescription') || ''
+                };
+                
+                try {
+                    const response = await fetch('/controller/api/create-game-signup', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + session,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(gameData)
+                    });
+                    
+                    if (response.ok) {
+                        closeModal();
+                        alert('Game signup created successfully!');
+                        loadDashboardData(); // Refresh dashboard
+                    } else {
+                        const error = await response.json();
+                        alert('Error: ' + (error.message || 'Failed to create game signup'));
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            });
         }
 
         function showSystemInfo() {
@@ -378,4 +484,80 @@ export async function handleLogs(req: Request, res: Response): Promise<void> {
 [${new Date().toISOString()}] Logs viewed`;
     
     res.type('text/plain').send(logs);
+}
+
+export async function handleCreateGameSignup(req: Request, res: Response): Promise<Response> {
+    try {
+        const { gameName, discordTimestamp, gameDescription } = req.body;
+        
+        if (!gameName || !discordTimestamp) {
+            return res.status(400).json({ message: 'Game name and Discord timestamp are required' });
+        }
+        
+        // Validate Discord timestamp format
+        const timestampRegex = /<t:\d+:[RrDdFfTt]>/;
+        if (!timestampRegex.test(discordTimestamp)) {
+            return res.status(400).json({ message: 'Invalid Discord timestamp format. Use format: <t:1234567890:R>' });
+        }
+        
+        const { client, addGameSignupMessage } = await import('./discord-bot');
+        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+        
+        if (!client.isReady()) {
+            return res.status(503).json({ message: 'Discord bot is not ready' });
+        }
+        
+        // Get the game signup channel (using the same channel as verification for now)
+        const channel = await client.channels.fetch("1393296204405801030");
+        if (!channel || !channel.isTextBased()) {
+            return res.status(404).json({ message: 'Game signup channel not found' });
+        }
+        
+        // Create the embed
+        const embed = new EmbedBuilder()
+            .setTitle('🎮 New Game Session Scheduled!')
+            .setDescription(`**${gameName}**\n\n${gameDescription || 'Get ready for an exciting gaming session!'}`)
+            .addFields([
+                {
+                    name: '📅 When',
+                    value: `${discordTimestamp}`,
+                    inline: true
+                },
+                {
+                    name: '👥 Attendees',
+                    value: '0 players signed up',
+                    inline: true
+                },
+                {
+                    name: '📝 How to Join',
+                    value: 'React with 🎮 to sign up for this session!',
+                    inline: false
+                }
+            ])
+            .setColor(0x00ff00)
+            .setThumbnail('https://cdn.discordapp.com/emojis/1234567890123456789.png') // You can add a custom emoji URL
+            .setTimestamp()
+            .setFooter({ text: 'CarnageRP Game Scheduler' });
+        
+        // Send the embed
+        const message = await (channel as TextChannel).send({ embeds: [embed] });
+        
+        // Add reaction for signup
+        await message.react('🎮');
+        
+        // Track this message for reaction updates
+        addGameSignupMessage(message.id, gameName, discordTimestamp);
+        
+        logger.info(`Game signup created: ${gameName} at ${discordTimestamp}`);
+        
+        return res.json({ 
+            message: 'Game signup created successfully',
+            messageId: message.id,
+            channelId: channel.id
+        });
+        
+    } catch (error) {
+        logger.error('Error creating game signup:', error);
+        return res.status(500).json({ message: 'Failed to create game signup' });
+    }
 }

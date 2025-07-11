@@ -1,13 +1,27 @@
+// src/express-server.ts
 import express, { Request, Response } from 'express';
 import { config, logger } from './config';
-import { handleRobloxAuth } from './roblox-auth'
+import { handleRobloxAuth } from './roblox-auth';
 import { homePage, privacyPage, tosPage } from './templates';
-import { handleControllerLogin, handleControllerAuth, handleControllerDashboard, requireAuth, handleControllerLogout, handleRefreshButton, handleSystemInfo, handleDashboardData, handleLogs, CONTROLLER_PASSWORD } from './controller';
+import {
+    CONTROLLER_PASSWORD,
+    requireAuth,
+    handleControllerLogin,
+    handleControllerAuth,
+    handleControllerDashboard,
+    handleControllerLogout,
+    handleRefreshButton,
+    handleSystemInfo,
+    handleDashboardData,
+    handleLogs,
+    handleCreateGameSignup
+} from './controller';
 
 export const app = express();
 app.use(express.json());
 
 export function setupRoutes(): void {
+    // Main routes
     app.get('/', (req: Request, res: Response) => {
         logger.trace('Root page requested');
         res.redirect('/home');
@@ -30,6 +44,7 @@ export function setupRoutes(): void {
 
     app.get('/auth/roblox', handleRobloxAuth);
 
+    // Controller routes
     app.get('/controller', (req: Request, res: Response) => {
         res.redirect('/controller/login');
     });
@@ -41,6 +56,7 @@ export function setupRoutes(): void {
 
     // Controller API routes
     app.post('/controller/api/refresh-button', requireAuth, handleRefreshButton);
+    app.post('/controller/api/create-game-signup', requireAuth, handleCreateGameSignup);
     app.get('/controller/api/system-info', requireAuth, handleSystemInfo);
     app.get('/controller/api/dashboard-data', requireAuth, handleDashboardData);
     app.get('/controller/api/logs', requireAuth, handleLogs);
