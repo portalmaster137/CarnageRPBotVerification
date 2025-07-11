@@ -247,11 +247,6 @@ export const baseTemplate = (title: string, content: string): string => `
 export const homePage = (): string => baseTemplate('Home', `
     <h1>Welcome to CarnageRP Verification</h1>
     
-    <div class="cta-section">
-        <h2 style="color: white; border: none; margin: 0 0 1rem 0;">🎮 Join the Adventure!</h2>
-        <p>Connect your Discord account with your Roblox profile to access exclusive CarnageRP features and verify your identity.</p>
-        <a href="#" class="cta-button">Get Started on Discord</a>
-    </div>
 
     <div class="section">
         <h2>How It Works</h2>
