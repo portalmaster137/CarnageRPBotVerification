@@ -1,4 +1,4 @@
-// src/controllers/controller.ts - Clean controller logic only
+// src/controllers/controller.ts - Updated with DM functionality
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { logger } from '../config';
@@ -112,6 +112,64 @@ export async function handleLogs(req: Request, res: Response): Promise<void> {
 [${new Date().toISOString()}] Logs viewed`;
     
     res.type('text/plain').send(logs);
+}
+
+export async function handleGetGameSignups(req: Request, res: Response): Promise<Response> {
+    try {
+        const { getActiveGameSignups } = await import('../discord-bot');
+        const gameSignups = getActiveGameSignups();
+        
+        return res.json(gameSignups);
+    } catch (error) {
+        logger.error('Error fetching game signups:', error);
+        return res.status(500).json({ message: 'Failed to fetch game signups' });
+    }
+}
+
+export async function handleSendGameDM(req: Request, res: Response): Promise<Response> {
+    try {
+        const { messageId, subject, message } = req.body;
+        
+        // Validation
+        if (!messageId || !subject || !message) {
+            return res.status(400).json({ 
+                message: 'Message ID, subject, and message content are required' 
+            });
+        }
+        
+        if (subject.length > 100) {
+            return res.status(400).json({ 
+                message: 'Subject must be 100 characters or less' 
+            });
+        }
+        
+        if (message.length > 2000) {
+            return res.status(400).json({ 
+                message: 'Message must be 2000 characters or less' 
+            });
+        }
+        
+        const { sendDMToGamePlayers } = await import('../discord-bot');
+        const result = await sendDMToGamePlayers(messageId, subject, message);
+        
+        if (result.success) {
+            logger.info(`DM sent to ${result.sentCount} players for game signup ${messageId}`);
+            return res.json({
+                message: `Successfully sent DM to ${result.sentCount} player(s)`,
+                sentCount: result.sentCount,
+                failedCount: result.failedCount,
+                details: result.details
+            });
+        } else {
+            return res.status(404).json({ 
+                message: result.error || 'Game signup not found or no players signed up'
+            });
+        }
+        
+    } catch (error) {
+        logger.error('Error sending game DMs:', error);
+        return res.status(500).json({ message: 'Failed to send DMs' });
+    }
 }
 
 export async function handleCreateGameSignup(req: Request, res: Response): Promise<Response> {

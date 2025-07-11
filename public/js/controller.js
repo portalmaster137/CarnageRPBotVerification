@@ -1,4 +1,4 @@
-// src/public/js/controller.js
+// src/public/js/controller.js - Updated with DM functionality
 
 class ControllerDashboard {
     constructor() {
@@ -41,6 +41,7 @@ class ControllerDashboard {
         const buttons = {
             'refresh-button-btn': () => this.refreshButton(),
             'game-signup-btn': () => this.showGameSignupForm(),
+            'send-dm-btn': () => this.showSendDMForm(),
             'system-info-btn': () => this.showSystemInfo(),
             'view-logs-btn': () => this.viewLogs()
         };
@@ -142,6 +143,172 @@ class ControllerDashboard {
             activityEl.innerHTML = data.recentActivity || 
                 '<p style="color: #666;">No recent activity</p>';
         }
+    }
+
+    async showSendDMForm() {
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        
+        if (!modalTitle || !modalContent) return;
+
+        modalTitle.textContent = 'Send DM to Game Players';
+        modalContent.innerHTML = '<p>Loading active game signups...</p>';
+        
+        this.showModal();
+
+        // Fetch active game signups
+        const response = await this.apiCall('/controller/api/game-signups');
+        
+        if (response && response.ok) {
+            const gameSignups = await response.json();
+            modalContent.innerHTML = this.getSendDMFormHTML(gameSignups);
+            this.bindSendDMForm();
+        } else {
+            modalContent.innerHTML = `
+                <div style="color: #dc3545; text-align: center; padding: 2rem;">
+                    <h3>❌ Failed to load game signups</h3>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+        }
+    }
+
+    getSendDMFormHTML(gameSignups) {
+        if (gameSignups.length === 0) {
+            return `
+                <div style="text-align: center; padding: 2rem; color: #666;">
+                    <h3>📭 No Active Game Signups</h3>
+                    <p>Create a game signup first to send DMs to players.</p>
+                    <button type="button" class="btn btn-primary" onclick="controllerDashboard.closeModal(); controllerDashboard.showGameSignupForm();">
+                        Create Game Signup
+                    </button>
+                </div>
+            `;
+        }
+
+        const gameOptions = gameSignups.map(game => 
+            `<option value="${game.messageId}">
+                ${game.gameName} (${game.playerCount} player${game.playerCount !== 1 ? 's' : ''})
+            </option>`
+        ).join('');
+
+        return `
+            <form id="sendDMForm" class="modal-form">
+                <div class="form-group">
+                    <label for="gameSelect" class="form-label">Select Game Session:</label>
+                    <select id="gameSelect" name="gameSelect" required class="form-input">
+                        <option value="">Choose a game session...</option>
+                        ${gameOptions}
+                    </select>
+                    <div id="gameInfo" class="form-help" style="margin-top: 0.5rem; display: none;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="dmSubject" class="form-label">Subject:</label>
+                    <input 
+                        type="text" 
+                        id="dmSubject" 
+                        name="dmSubject" 
+                        required 
+                        maxlength="100"
+                        class="form-input"
+                        placeholder="e.g., Important Update About Tonight's Session"
+                    />
+                    <div class="form-help">Maximum 100 characters</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="dmMessage" class="form-label">Message:</label>
+                    <textarea 
+                        id="dmMessage" 
+                        name="dmMessage" 
+                        required
+                        maxlength="2000"
+                        rows="6"
+                        class="form-textarea"
+                        placeholder="Enter your message to all signed up players..."
+                    ></textarea>
+                    <div class="form-help">
+                        Maximum 2000 characters. This message will be sent as a DM to all players who signed up for the selected game.
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="controllerDashboard.closeModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        📨 Send DMs
+                    </button>
+                </div>
+            </form>
+        `;
+    }
+
+    bindSendDMForm() {
+        const form = document.getElementById('sendDMForm');
+        const gameSelect = document.getElementById('gameSelect');
+        const gameInfo = document.getElementById('gameInfo');
+        
+        if (!form || !gameSelect || !gameInfo) return;
+
+        // Show game info when selection changes
+        gameSelect.addEventListener('change', async (e) => {
+            if (e.target.value) {
+                const response = await this.apiCall('/controller/api/game-signups');
+                if (response && response.ok) {
+                    const gameSignups = await response.json();
+                    const selectedGame = gameSignups.find(game => game.messageId === e.target.value);
+                    
+                    if (selectedGame) {
+                        gameInfo.style.display = 'block';
+                        gameInfo.innerHTML = `
+                            <strong>📅 When:</strong> ${selectedGame.timestamp}<br>
+                            <strong>👥 Players:</strong> ${selectedGame.playerCount}${selectedGame.maxPlayers ? `/${selectedGame.maxPlayers}` : ''}<br>
+                            <strong>🎯 This DM will be sent to ${selectedGame.playerCount} player${selectedGame.playerCount !== 1 ? 's' : ''}</strong>
+                        `;
+                    }
+                }
+            } else {
+                gameInfo.style.display = 'none';
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const dmData = {
+                messageId: formData.get('gameSelect'),
+                subject: formData.get('dmSubject'),
+                message: formData.get('dmMessage')
+            };
+            
+            // Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+            
+            const response = await this.apiCall('/controller/api/send-game-dm', {
+                method: 'POST',
+                body: JSON.stringify(dmData)
+            });
+            
+            // Reset button
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+            
+            if (response && response.ok) {
+                const result = await response.json();
+                this.closeModal();
+                this.showSuccess(`${result.message}${result.failedCount > 0 ? ` (${result.failedCount} failed)` : ''}`);
+                this.loadDashboardData(); // Refresh dashboard
+            } else {
+                const error = await response.json();
+                this.showError(error.message || 'Failed to send DMs');
+            }
+        });
     }
 
     showGameSignupForm() {

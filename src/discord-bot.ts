@@ -1,4 +1,4 @@
-// src/discord-bot.ts
+// src/discord-bot.ts - Updated with DM functionality
 import {
     Client,
     GatewayIntentBits,
@@ -156,6 +156,112 @@ export function addGameSignupMessage(messageId: string, gameName: string, timest
         pingEveryone
     });
     logger.info(`Added game signup message tracking: ${messageId} - ${gameName}${maxPlayers ? ` (max: ${maxPlayers})` : ''}${pingEveryone ? ' with @everyone ping' : ''}`);
+}
+
+export function getActiveGameSignups(): Array<{
+    messageId: string;
+    gameName: string;
+    timestamp: string;
+    maxPlayers?: number;
+    playerCount: number;
+    players: string[];
+}> {
+    const signups = [];
+    
+    for (const [messageId, gameData] of gameSignupMessages) {
+        signups.push({
+            messageId,
+            gameName: gameData.gameName,
+            timestamp: gameData.timestamp,
+            maxPlayers: gameData.maxPlayers,
+            playerCount: gameData.players.size,
+            players: Array.from(gameData.players)
+        });
+    }
+    
+    return signups;
+}
+
+export async function sendDMToGamePlayers(messageId: string, subject: string, message: string): Promise<{
+    success: boolean;
+    sentCount: number;
+    failedCount: number;
+    details: string[];
+    error?: string;
+}> {
+    const gameData = gameSignupMessages.get(messageId);
+    
+    if (!gameData) {
+        return {
+            success: false,
+            sentCount: 0,
+            failedCount: 0,
+            details: [],
+            error: 'Game signup not found'
+        };
+    }
+    
+    if (gameData.players.size === 0) {
+        return {
+            success: false,
+            sentCount: 0,
+            failedCount: 0,
+            details: [],
+            error: 'No players signed up for this game'
+        };
+    }
+    
+    let sentCount = 0;
+    let failedCount = 0;
+    const details: string[] = [];
+    
+    const embed = new EmbedBuilder()
+        .setTitle(`📢 ${subject}`)
+        .setDescription(message)
+        .setColor(0x667eea)
+        .addFields([
+            { 
+                name: '🎮 Game Session', 
+                value: gameData.gameName, 
+                inline: true 
+            },
+            { 
+                name: '📅 Scheduled Time', 
+                value: gameData.timestamp, 
+                inline: true 
+            }
+        ])
+        .setTimestamp()
+        .setFooter({ text: 'CarnageRP Game Notification' });
+    
+    // Send DM to each player
+    for (const userId of gameData.players) {
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send({ embeds: [embed] });
+            
+            sentCount++;
+            details.push(`✅ Sent to ${user.displayName || user.username} (${userId})`);
+            logger.info(`DM sent to ${user.tag} for game: ${gameData.gameName}`);
+            
+            // Add a small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+        } catch (error) {
+            failedCount++;
+            details.push(`❌ Failed to send to ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            logger.error(`Failed to send DM to ${userId}:`, error);
+        }
+    }
+    
+    logger.info(`DM batch completed for game "${gameData.gameName}": ${sentCount} sent, ${failedCount} failed`);
+    
+    return {
+        success: sentCount > 0,
+        sentCount,
+        failedCount,
+        details
+    };
 }
 
 export function setupDiscordEventHandlers(): void {

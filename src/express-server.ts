@@ -1,4 +1,4 @@
-// src/express-server.ts
+// src/express-server.ts - Updated with DM routes
 import express, { Request, Response } from 'express';
 import { engine } from 'express-handlebars';
 import path from 'path';
@@ -15,7 +15,9 @@ import {
     handleSystemInfo,
     handleDashboardData,
     handleLogs,
-    handleCreateGameSignup
+    handleCreateGameSignup,
+    handleGetGameSignups,
+    handleSendGameDM
 } from './controllers/controller';
 
 export const app = express();
@@ -25,13 +27,10 @@ console.log(`dirname: ${__dirname}`);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
-
 // Static files
 app.use('/css', express.static(path.join(__dirname, '../public/css')));
 app.use('/js', express.static(path.join(__dirname, '../public/js')));
 app.use('/images', express.static(path.join(__dirname, '../public/images')));
-
 
 // Template engine setup
 app.engine('hbs', engine({
@@ -98,6 +97,8 @@ export function setupRoutes(): void {
     // Controller API routes
     app.post('/controller/api/refresh-button', requireAuth, handleRefreshButton);
     app.post('/controller/api/create-game-signup', requireAuth, handleCreateGameSignup);
+    app.get('/controller/api/game-signups', requireAuth, handleGetGameSignups);
+    app.post('/controller/api/send-game-dm', requireAuth, handleSendGameDM);
     app.get('/controller/api/system-info', requireAuth, handleSystemInfo);
     app.get('/controller/api/dashboard-data', requireAuth, handleDashboardData);
     app.get('/controller/api/logs', requireAuth, handleLogs);
