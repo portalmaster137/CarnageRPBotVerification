@@ -19,22 +19,26 @@ import {
 } from './controllers/controller';
 
 export const app = express();
+console.log(`dirname: ${__dirname}`);
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+
 // Static files
-app.use('/css', express.static(path.join(__dirname, 'public/css')));
-app.use('/js', express.static(path.join(__dirname, 'public/js')));
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
+app.use('/css', express.static(path.join(__dirname, '../public/css')));
+app.use('/js', express.static(path.join(__dirname, '../public/js')));
+app.use('/images', express.static(path.join(__dirname, '../public/images')));
+
 
 // Template engine setup
 app.engine('hbs', engine({
     extname: 'hbs',
     defaultLayout: 'main',
-    layoutsDir: path.join(__dirname, 'views/layouts'),
-    partialsDir: path.join(__dirname, 'views/partials'),
+    layoutsDir: path.join(__dirname, '../views/layouts'),
+    partialsDir: path.join(__dirname, '../views/partials'),
     helpers: {
         // Custom helpers
         json: (obj: any) => JSON.stringify(obj),
@@ -45,7 +49,7 @@ app.engine('hbs', engine({
 }));
 
 app.set('view engine', 'hbs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', path.join(__dirname, '../views'));
 
 export function setupRoutes(): void {
     // Main routes - now using templates
