@@ -73,7 +73,7 @@ export function setupDiscordEventHandlers(): void {
             const robloxOAuthUrl = `${config.roblox.oauthUrl}&state=${state}`;
             await buttonInteraction.reply({
                 content: `Click the link to verify your account: [Verify Account](${robloxOAuthUrl})`,
-                ephemeral: true
+                flags: "Ephemeral"
             });
             logger.info(`Verification link sent to ${interaction.user.tag}`);
         }
