@@ -261,11 +261,6 @@ export async function markGameAsStarted(messageId: string): Promise<{
         const message = await (channel as TextChannel).messages.fetch(messageId);
         await updateGameSignupEmbed(message, gameData);
         
-        // Remove from tracking after a delay (optional - you can remove this if you want to keep started games tracked)
-        setTimeout(() => {
-            gameSignupMessages.delete(messageId);
-            logger.info(`Removed started game from tracking: ${gameData.gameName}`);
-        }, 5 * 60 * 1000); // Remove after 5 minutes
         
         logger.info(`Game "${gameData.gameName}" marked as started with ${gameData.players.size} players`);
         
