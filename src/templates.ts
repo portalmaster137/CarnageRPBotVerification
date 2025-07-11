@@ -246,8 +246,6 @@ export const baseTemplate = (title: string, content: string): string => `
 
 export const homePage = (): string => baseTemplate('Home', `
     <h1>Welcome to CarnageRP Verification</h1>
-    
-
     <div class="section">
         <h2>How It Works</h2>
         <div class="feature-grid">
