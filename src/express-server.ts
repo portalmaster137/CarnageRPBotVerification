@@ -8,6 +8,11 @@ app.use(express.json());
 
 export function setupRoutes(): void {
     app.get('/', (req: Request, res: Response) => {
+        logger.trace('Root page requested');
+        res.redirect('/home');
+    });
+
+    app.get('/home', (req: Request, res: Response) => {
         logger.trace('Home page requested');
         res.send(homePage());
     });
@@ -17,7 +22,7 @@ export function setupRoutes(): void {
         res.send(privacyPage());
     });
 
-    app.get('/tos', (req: Request, res: Response) => {
+    app.get('/terms', (req: Request, res: Response) => {
         logger.trace('Terms of Service page requested');
         res.send(tosPage());
     });

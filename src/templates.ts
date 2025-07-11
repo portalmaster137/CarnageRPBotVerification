@@ -223,7 +223,7 @@ export const baseTemplate = (title: string, content: string): string => `
                 <nav>
                     <a href="/">Home</a>
                     <a href="/privacy">Privacy</a>
-                    <a href="/tos">Terms</a>
+                    <a href="/terms">Terms</a>
                 </nav>
             </div>
         </div>
