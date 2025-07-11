@@ -254,7 +254,7 @@ export const homePage = (): string => baseTemplate('Home', `
             <div class="feature-card">
                 <div class="feature-icon">🔗</div>
                 <div class="feature-title">1. Connect</div>
-                <div class="feature-description">Click the verification button in our Discord server</div>
+                <div class="feature-description">Click the verification button in our Communication Server</div>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🛡️</div>
@@ -317,7 +317,7 @@ export const privacyPage = (): string => baseTemplate('Privacy Policy', `
         <p>We use the collected information solely for:</p>
         <ul>
             <li>Verifying your identity between Discord and Roblox accounts</li>
-            <li>Assigning appropriate roles in the Discord server</li>
+            <li>Assigning appropriate roles in the Communication Server</li>
             <li>Maintaining server security and preventing unauthorized access</li>
             <li>Updating your Discord nickname with your Roblox display name</li>
         </ul>
@@ -357,7 +357,8 @@ export const privacyPage = (): string => baseTemplate('Privacy Policy', `
 
     <div class="section">
         <h2>Contact Us</h2>
-        <p>If you have any questions about this Privacy Policy or our data practices, please contact us through our Discord server or the appropriate channels provided by CarnageRP.</p>
+        <p>If you have any questions about this Privacy Policy or our data practices, please contact us through our Communication Server or the appropriate channels provided by CarnageRP.</p>
+        <p>Or send a email to <a href="mailto:portadev.contact@gmail.com">Our Email</a></p>
     </div>
 `);
 
@@ -453,6 +454,6 @@ export const tosPage = (): string => baseTemplate('Terms of Service', `
 
     <div class="section">
         <h2>Contact Information</h2>
-        <p>For questions about these Terms of Service, please contact us through the appropriate channels provided by CarnageRP or our Discord server.</p>
+        <p>For questions about these Terms of Service, please contact us through the appropriate channels provided by CarnageRP or our Communication Server.</p>
     </div>
 `);
