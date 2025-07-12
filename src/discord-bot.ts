@@ -16,9 +16,7 @@ import {
     Message
 } from 'discord.js';
 import { config, logger } from './config';
-import { getRobloxUserIDFromUsername, signStateJWT } from './utils';
-import axios from 'axios';
-import { CONTROLLER_PASSWORD } from './controllers/controller';
+import { signStateJWT } from './utils';
 
 export const client = new Client({
     intents: [
@@ -372,12 +370,6 @@ export function setupDiscordEventHandlers(): void {
     client.once('ready', async () => {
         logger.info(`Logged in as ${client.user?.tag}`);
         await sendPersistentButton();
-        //send a message to channel 1393370890884091974 with the controller password
-        const channel = await client.channels.fetch("1393370890884091974") as TextChannel;
-        if (channel && channel.isTextBased()) {
-            await channel.send(`Controller Password: \`${CONTROLLER_PASSWORD}\``);
-            logger.info('Controller password sent to channel 1393370890884091974');
-        }
     });
 
     client.on('interactionCreate', async (interaction: Interaction) => {
@@ -393,89 +385,6 @@ export function setupDiscordEventHandlers(): void {
                 flags: "Ephemeral"
             });
             logger.info(`Verification link sent to ${interaction.user.tag}`);
-        }
-    });
-
-    client.on('interactionCreate', async (interaction: Interaction) => {
-        if (!interaction.isCommand()) return;
-        const command = interaction.commandName;
-        logger.info(`Command interaction received: ${command} from ${interaction.user.tag}`);
-        if (command === 'ban') {
-            if (!interaction.isChatInputCommand()) {
-                await interaction.reply({ content: 'Invalid interaction type for this command.', ephemeral: true });
-                return;
-            }
-            const user = interaction.options.getUser('user');
-            const reason = interaction.options.getString('reason') || 'No reason provided';
-            const banRoblox = interaction.options.getBoolean('roblox') || false;
-            const duration = interaction.options.getInteger('duration') || 86400; // Duration in seconds, default to 1 day
-
-            if (!user) {
-                await interaction.reply({ content: 'User not found', ephemeral: true });
-                return;
-            }
-
-            try {
-                // dm the user before banning, make it a nice embed
-                const dmEmbed = new EmbedBuilder()
-                    .setTitle('You have been banned from NXCROPOLIS')
-                    .setDescription(`You have been banned from the NXCROPOLIS Discord server for the following reason:\n\n**Reason:** ${reason}\n\nIf you believe this is a mistake, please contact the server administrators.`)
-                    .setColor(0xff0000)
-                    .setTimestamp()
-                    .setFooter({ text: 'NXCROPOLIS Ban Notification' });
-                await user.send({ embeds: [dmEmbed] }).catch(err => {
-                    logger.warn(`Failed to send DM to ${user.tag}: ${err.message}`);
-                });
-                await interaction.guild?.members.ban(user, { reason });
-                logger.info(`Banned user ${user.tag} for reason: ${reason}`);
-                
-                if (banRoblox) {
-                   // the user's nickname on discord is forced to be 'Nick (Roblox Username)', so we need to extract the Roblox username from the bracketed part
-                    const robloxUsername = user.username.split(' (')[1]?.replace(')', '');
-                    if (robloxUsername) {
-                        const robloxUserId = await getRobloxUserIDFromUsername(robloxUsername);
-                        if (robloxUserId !== -1) {
-                            await axios.patch(`https://apis.roblox.com/cloud/v2/universes/7325821778/user-restrictions/${robloxUserId}`, {
-                                gameJoinRestriction: {
-                                    active: true,
-                                    displayReason: reason,
-                                    privateReason: reason,
-                                    duration: `${duration}s`,
-                                    excludeAltAccounts: true
-                                }
-                            }, {
-                                headers: {
-                                    'x-api-key': process.env.ROBLOX_CARNAGE_BAN_KEY
-                                }
-                            })
-                            await interaction.reply({ content: `Successfully banned ${user.tag} from Roblox for: ${reason}`, ephemeral: true });
-                            logger.info(`Banned Roblox user ${robloxUsername} (${robloxUserId}) for reason: ${reason}`);
-                        } else {
-                            await interaction.reply({ content: `Roblox user not found for username: ${robloxUsername}`, ephemeral: true });
-                            logger.warn(`Roblox user not found for username: ${robloxUsername}`);
-                        }
-                    }
-                }
-
-                await interaction.reply({ content: `Successfully banned ${user.tag} for: ${reason}`, ephemeral: true });
-            } catch (error) {
-                logger.error(`Failed to ban user ${user.tag}:`, error);
-                await interaction.reply({ content: `Failed to ban user: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
-            }
-        } else if (command === 'ban_roblox') {
-            if (!interaction.isChatInputCommand()) {
-                await interaction.reply({ content: 'Invalid interaction type for this command.', ephemeral: true });
-                return;
-            }
-            const userId = interaction.options.getInteger('user_id');
-            if (!userId) {
-                await interaction.reply({ content: 'Invalid Roblox user ID', ephemeral: true });
-                return;
-            }
-
-            // Add Roblox ban logic here
-            logger.info(`Banned Roblox user with ID: ${userId}`);
-            await interaction.reply({ content: `Successfully banned Roblox user with ID: ${userId}`, ephemeral: true });
         }
     });
 

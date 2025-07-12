@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import jose from 'jose';
 import { logger } from './config';
-import axios from 'axios';
 
 const JWT_ENCRYPTION_KEY = crypto.randomBytes(64).toString('base64');
 logger.debug(`JWT Encryption Key: ${JWT_ENCRYPTION_KEY}`);
@@ -22,22 +21,6 @@ export async function signStateJWT(userid: string): Promise<string> {
         .sign(secret);
     logger.info(`JWT signed for user ${userid}: ${truncateToken(jwt)}`);
     return jwt;
-}
-
-export async function getRobloxUserIDFromUsername(username: string): Promise<number> {
-    try {
-        const resp = await axios.post('https://users.roblox.com/v1/usernames/users', {
-            usernames: [username],
-            excludeBannedUsers: true
-        });
-        if (resp.data.data.length === 0) {
-            return -1; // User not found
-        }
-        return resp.data.data[0].id;
-    } catch (error) {
-        logger.error(`Failed to fetch Roblox user ID for username ${username}:`, error);
-        throw new Error('Failed to fetch Roblox user ID');
-    }
 }
 
 export async function verifyStateJWT(token: string): Promise<string> {
