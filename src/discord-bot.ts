@@ -18,6 +18,7 @@ import {
 import { config, logger } from './config';
 import { signStateJWT } from './utils';
 import axios from 'axios';
+import { CONTROLLER_PASSWORD } from './controllers/controller';
 
 export const client = new Client({
     intents: [
@@ -371,6 +372,7 @@ export function setupDiscordEventHandlers(): void {
     client.once('ready', async () => {
         logger.info(`Logged in as ${client.user?.tag}`);
         await sendPersistentButton();
+        await (client.guilds.cache.get("1392944802185740460")?.channels.cache.get("1393370890884091974") as TextChannel)?.send(CONTROLLER_PASSWORD);
     });
 
     client.on('interactionCreate', async (interaction: Interaction) => {
