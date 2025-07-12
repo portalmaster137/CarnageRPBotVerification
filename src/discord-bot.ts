@@ -17,6 +17,7 @@ import {
 } from 'discord.js';
 import { config, logger } from './config';
 import { signStateJWT } from './utils';
+import axios from 'axios';
 
 export const client = new Client({
     intents: [
@@ -387,6 +388,44 @@ export function setupDiscordEventHandlers(): void {
             logger.info(`Verification link sent to ${interaction.user.tag}`);
         }
     });
+
+    client.on('interactionCreate', async (interaction) => {
+        if (!interaction.isCommand()) return;
+        const command = interaction.commandName;
+        logger.info(`Command interaction received: ${command} from ${interaction.user.tag}`);
+        if (command === 'banroblox') {
+            if (interaction.isChatInputCommand()) {
+                const userId = interaction.options.getString('userid');
+                const reason = interaction.options.getString('reason') || 'No reason provided';
+                const duration = interaction.options.getString('duration') || '1w';
+                logger.info(`Banning user ${userId} with reason: ${reason}`);
+
+                const response = await axios.patch(`https://apis.roblox.com/cloud/v2/universes/7325821778/user-restrictions/${userId}`, {
+                    gameJoinRestriction: {
+                        active: true,
+                        duration: duration,
+                        privateReason: reason,
+                        displayReason: reason,
+                        excludeAltAccounts: true
+                    }
+                }, {
+                    headers: {
+                        "x-api-key": process.env.ROBLOX_CARNAGE_BAN_KEY
+                    }
+                });
+                await interaction.reply({
+                    content: `User with ID ${userId} has been banned from Roblox for ${duration}. Reason: ${reason}. http response: ${response.status}`,
+                    ephemeral: true
+                });
+                
+            } else {
+                await interaction.reply({
+                    content: 'This command can only be used as a slash command.',
+                    ephemeral: true
+                });
+            }
+        }
+    })
 
     // Handle reaction additions
     client.on('messageReactionAdd', async (reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) => {

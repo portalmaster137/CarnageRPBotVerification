@@ -17,25 +17,22 @@ const logger = pino({
 
 const commands = [
     new SlashCommandBuilder()
-        .setName("ban")
-        .setDefaultMemberPermissions(4) // 4 is the permission bit for Ban Members
-        .setDescription("Ban a user from the Discord server")
-        .addUserOption(option => 
-            option.setName("user")
-                .setDescription("The user to ban")
+        .setName('banroblox')
+        .setDefaultMemberPermissions(4) // Only allow users with the 'Ban Members' permission to use this command
+        .setDescription('Ban a user from Roblox')
+        .addIntegerOption(option =>
+            option.setName('userid')
+                .setDescription('The Roblox user ID to ban')
                 .setRequired(true))
-        .addStringOption(option => 
-            option.setName("reason")
-                .setDescription("The reason for the ban")
-                .setRequired(false))
-        .addBooleanOption(option =>
-            option.setName("roblox")
-                .setDescription("Whether to also ban the user from Roblox from CARNAGE")
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('The reason for the ban')
                 .setRequired(false))
         .addIntegerOption(option =>
-            option.setName("duration")
-                .setDescription("Duration of the ban in seconds. (Don't ask me why this is an integer, Discord API is weird)")
+            option.setName('duration')
+                .setDescription('The duration of the ban in seconds. Roblox forces me to do in seconds, so I have to do it this way.')
                 .setRequired(false)),
+
         
 ].map(command => command.toJSON());
 
