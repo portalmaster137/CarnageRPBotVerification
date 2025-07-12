@@ -107,7 +107,7 @@ export function setupRoutes(): void {
 
     // Error handling middleware
     app.use((err: Error, req: Request, res: Response, next: Function) => {
-        logger.error('Express error:', err);
+        console.log('Express error:', err);
         res.status(500).render('error', {
             title: 'Server Error',
             message: 'An internal server error occurred',

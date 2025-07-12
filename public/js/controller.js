@@ -500,7 +500,7 @@ class ControllerDashboard {
                     />
                     <div class="form-help">
                         Use Discord timestamp format. Generate at 
-                        <a href="https://www.unixtimestamp.com/" target="_blank">unixtimestamp.com</a>
+                        <a href="https://r.3v.fi/discord-timestamps/" target="_blank">3vfi</a>
                     </div>
                 </div>
                 
