@@ -33,7 +33,8 @@ export async function verifyStateJWT(token: string): Promise<string> {
         logger.info(`JWT verified successfully for user ${payload.userid}`);
         return payload.userid as string;
     } catch (error) {
-        logger.error('JWT verification failed:', error);
+        console.log('JWT verification failed:', error);
         throw new Error('Invalid or expired token');
     }
 }
+

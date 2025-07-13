@@ -14,7 +14,7 @@ export async function handleRobloxAuth(req: Request, res: Response): Promise<Res
     try {
         userId = await verifyStateJWT(state as string);
     } catch (error) {
-        logger.error('Error verifying state JWT:', error);
+        console.log('Error verifying state JWT:', error);
         return res.status(400).send('Invalid or expired state token. Please try again.');
     }
 
@@ -67,18 +67,22 @@ export async function handleRobloxAuth(req: Request, res: Response): Promise<Res
         logger.info(`Role ${roleId} assigned to user ${userId}`);
 
         // Update nickname
-        await axios.patch(`https://discord.com/api/v10/guilds/${config.bot.guildId}/members/${userId}`, {
+        try {
+            await axios.patch(`https://discord.com/api/v10/guilds/${config.bot.guildId}/members/${userId}`, {
             nick: `${userdetails.data.displayName} (${robloxUserId})`
-        }, {
+            }, {
             headers: {
                 Authorization: `Bot ${config.bot.token}`,
             }
-        });
-        logger.info(`Nickname updated for user ${userId} to ${userdetails.data.displayName} (${robloxUserId})`);
+            });
+            logger.info(`Nickname updated for user ${userId} to ${userdetails.data.displayName} (${robloxUserId})`);
+        } catch (err) {
+            console.log(`Failed to update nickname for user ${userId}:`, err);
+        }
 
         return res.status(200).send('Role assigned successfully! You can now close this window.');
     } catch (error) {
-        logger.error('Error during Roblox OAuth process:', error);
+        console.log('Error during Roblox OAuth process:', error);
         return res.status(500).send('Internal Server Error');
     }
 }

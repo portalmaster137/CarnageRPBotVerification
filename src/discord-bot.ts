@@ -47,7 +47,7 @@ export async function sendPersistentButton(): Promise<void> {
     try {
         const channel = await client.channels.fetch(config.bot.channelId) as TextChannel;
         if (!channel || !channel.isTextBased()) {
-            logger.error('Channel not found or is not a text channel');
+            console.log('Channel not found or is not a text channel');
             return;
         }
         const messages = await channel.messages.fetch({ limit: 10 });
@@ -75,7 +75,7 @@ export async function sendPersistentButton(): Promise<void> {
         await channel.send({ embeds: [embed], components: [row] });
         logger.info('Persistent button sent successfully');
     } catch (error) {
-        logger.error('Error sending persistent button:', error);
+        console.log('Error sending persistent button:', error);
     }
 }
 
@@ -93,7 +93,7 @@ async function updateGameSignupEmbed(message: Message, gameData: GameSignupData)
                     const user = await client.users.fetch(userId);
                     playerNames.push(user.displayName || user.username);
                 } catch (error) {
-                    logger.error(`Error fetching user ${userId}:`, error);
+                    console.log(`Error fetching user ${userId}:`, error);
                     playerNames.push('Unknown User');
                 }
             }
@@ -178,7 +178,7 @@ async function updateGameSignupEmbed(message: Message, gameData: GameSignupData)
         await message.edit({ embeds: [embed] });
         logger.info(`Updated game signup embed for "${gameData.gameName}" - Status: ${gameData.status}, ${userCount}${maxPlayers ? `/${maxPlayers}` : ''} attendees`);
     } catch (error) {
-        logger.error('Error updating game signup embed:', error);
+        console.log('Error updating game signup embed:', error);
     }
 }
 
@@ -272,7 +272,7 @@ export async function markGameAsStarted(messageId: string): Promise<{
         };
         
     } catch (error) {
-        logger.error('Error marking game as started:', error);
+        console.log('Error marking game as started:', error);
         return {
             success: false,
             message: '',
@@ -354,7 +354,7 @@ export async function sendDMToGamePlayers(messageId: string, subject: string, me
         } catch (error) {
             failedCount++;
             details.push(`❌ Failed to send to ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            logger.error(`Failed to send DM to ${userId}:`, error);
+            console.log(`Failed to send DM to ${userId}:`, error);
         }
     }
     
@@ -395,35 +395,136 @@ export function setupDiscordEventHandlers(): void {
         if (!interaction.isCommand()) return;
         const command = interaction.commandName;
         logger.info(`Command interaction received: ${command} from ${interaction.user.tag}`);
+        //check for ban permissions
+       
         if (command === 'banroblox') {
             if (interaction.isChatInputCommand()) {
-                const userId = interaction.options.getString('userid');
+                 if (!interaction.memberPermissions?.has('BanMembers')) {
+                    return interaction.reply({
+                        content: 'You do not have permission to use this command.',
+                        ephemeral: true
+                    });
+                }
+                const userId = interaction.options.getInteger('userid');
                 const reason = interaction.options.getString('reason') || 'No reason provided';
-                const duration = interaction.options.getString('duration') || '1w';
+                const duration = interaction.options.getInteger('duration');
                 logger.info(`Banning user ${userId} with reason: ${reason}`);
 
-                const response = await axios.patch(`https://apis.roblox.com/cloud/v2/universes/7325821778/user-restrictions/${userId}`, {
-                    gameJoinRestriction: {
+                try {
+                    // Build the restriction object
+                    const restriction: any = {
                         active: true,
-                        duration: duration,
                         privateReason: reason,
                         displayReason: reason,
                         excludeAltAccounts: true
+                    };
+                    if (duration && duration > 0) {
+                        restriction.duration = `${duration}s`;
                     }
-                }, {
-                    headers: {
-                        "x-api-key": process.env.ROBLOX_CARNAGE_BAN_KEY
-                    }
-                });
-                await interaction.reply({
-                    content: `User with ID ${userId} has been banned from Roblox for ${duration}. Reason: ${reason}. http response: ${response.status}`,
-                    ephemeral: true
-                });
+                    const response = await axios.patch(`https://apis.roblox.com/cloud/v2/universes/7325821778/user-restrictions/${userId}`, {
+                        gameJoinRestriction: restriction
+                    }, {
+                        headers: {
+                            "x-api-key": process.env.ROBLOX_CARNAGE_BAN_KEY
+                        }
+                    });
+                    await interaction.reply({
+                        content: `User with ID ${userId} has been banned from Roblox for ${duration}. Reason: ${reason}. http response: ${response.status}`,
+                        flags: ["Ephemeral"]
+                    });
+                } catch (error) {
+                    console.log(`Error banning user ${userId}:`, error);
+                    await interaction.reply({
+                        content: `Failed to ban user with ID ${userId}.`,
+                        ephemeral: true
+                    });
+                }
                 
             } else {
                 await interaction.reply({
                     content: 'This command can only be used as a slash command.',
                     ephemeral: true
+                });
+            }
+        }
+        if (command === 'getrobloxban') {
+            if (interaction.isChatInputCommand()) {
+                const userId = interaction.options.getInteger('userid');
+                logger.info(`Checking ban status for user ${userId}`);
+                if (!interaction.memberPermissions?.has('BanMembers')) {
+                    return interaction.reply({
+                        content: 'You do not have permission to use this command.',
+                        ephemeral: true
+                    });
+                }
+                try {
+                    const response = await axios.get(`https://apis.roblox.com/cloud/v2/universes/7325821778/user-restrictions/${userId}`, {
+                        headers: {
+                            "x-api-key": process.env.ROBLOX_CARNAGE_BAN_KEY
+                        }
+                    });
+                    const banData = response.data;
+                    if (banData.gameJoinRestriction.active) {
+                        await interaction.reply({
+                            content: `User with ID ${userId} is banned from Roblox. Reason: ${banData.gameJoinRestriction.displayReason}. Duration: ${banData.gameJoinRestriction.duration}`,
+                            flags: ["Ephemeral"]
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: `User with ID ${userId} is not banned from Roblox.`,
+                            flags: ["Ephemeral"]
+                        });
+                    }
+                } catch (error) {
+                    console.log(`Error checking ban status for user ${userId}:`, error);
+                    await interaction.reply({
+                        content: `Failed to check ban status for user with ID ${userId}.`,
+                        ephemeral: true
+                    });
+                }
+            } else {
+                await interaction.reply({
+                    content: 'This command can only be used as a slash command.',
+                    ephemeral: true
+                });
+            }
+        }
+
+        if (command === 'unbanroblox') {
+            if (interaction.isChatInputCommand()) {
+                const userId = interaction.options.getInteger('userid');
+                logger.info(`Unbanning user ${userId}`);
+                if (!interaction.memberPermissions?.has('BanMembers')) {
+                    return interaction.reply({
+                        content: 'You do not have permission to use this command.',
+                        ephemeral: true
+                    });
+                }
+                try {
+                    const response = await axios.patch(`https://apis.roblox.com/cloud/v2/universes/7325821778/user-restrictions/${userId}`, {
+                        gameJoinRestriction: {
+                            active: false
+                        }
+                    }, {
+                        headers: {
+                            "x-api-key": process.env.ROBLOX_CARNAGE_BAN_KEY
+                        }
+                    });
+                    await interaction.reply({
+                        content: `User with ID ${userId} has been unbanned from Roblox. http response: ${response.status}`,
+                        flags: ["Ephemeral"]
+                    });
+                } catch (error) {
+                    console.log(`Error unbanning user ${userId}:`, error);
+                    await interaction.reply({
+                        content: `Failed to unban user with ID ${userId}.`,
+                        flags: ["Ephemeral"]
+                    });
+                }
+            } else {
+                await interaction.reply({
+                    content: 'This command can only be used as a slash command.',
+                    flags: ["Ephemeral"]
                 });
             }
         }
@@ -468,7 +569,7 @@ export function setupDiscordEventHandlers(): void {
                 await updateGameSignupEmbed(reaction.message as Message, gameData);
             }
         } catch (error) {
-            logger.error('Error handling reaction add:', error);
+            console.log('Error handling reaction add:', error);
         }
     });
 
@@ -502,7 +603,7 @@ export function setupDiscordEventHandlers(): void {
                 await updateGameSignupEmbed(reaction.message as Message, gameData);
             }
         } catch (error) {
-            logger.error('Error handling reaction remove:', error);
+            console.log('Error handling reaction remove:', error);
         }
     });
 }

@@ -25,11 +25,11 @@ export function startServer(): void {
 
 export function setupErrorHandlers(): void {
     process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>): void => {
-        logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+        console.log('Unhandled Rejection at:', promise, 'reason:', reason);
     });
 
     process.on('uncaughtException', (error: Error): void => {
-        logger.error('Uncaught Exception:', error);
+        console.log('Uncaught Exception:', error);
         process.exit(1);
     });
 }

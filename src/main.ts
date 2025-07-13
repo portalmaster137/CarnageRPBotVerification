@@ -35,6 +35,6 @@ async function main(): Promise<void> {
 
 // Start the application
 main().catch((error) => {
-    logger.error('Failed to start application:', error);
+    console.log('Failed to start application:', error);
     process.exit(1);
 });

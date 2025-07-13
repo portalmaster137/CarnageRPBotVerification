@@ -76,7 +76,7 @@ export function validateConfig(): void {
     const missingFields = requiredFields.filter(field => !process.env[field]);
 
     if (missingFields.length > 0) {
-        logger.error('Missing required environment variables:', missingFields.join(', '));
+        console.log('Missing required environment variables:', missingFields.join(', '));
         process.exit(1);
     }
 }

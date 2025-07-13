@@ -77,7 +77,7 @@ export async function handleRefreshButton(req: Request, res: Response): Promise<
         logger.info('Verification button refreshed via controller');
         return res.json({ message: 'Button refreshed successfully' });
     } catch (error) {
-        logger.error('Error refreshing button:', error);
+        console.log('Error refreshing button:', error);
         return res.status(500).json({ message: 'Failed to refresh button' });
     }
 }
@@ -121,7 +121,7 @@ export async function handleGetGameSignups(req: Request, res: Response): Promise
         
         return res.json(gameSignups);
     } catch (error) {
-        logger.error('Error fetching game signups:', error);
+        console.log('Error fetching game signups:', error);
         return res.status(500).json({ message: 'Failed to fetch game signups' });
     }
 }
@@ -152,7 +152,7 @@ export async function handleMarkGameStarted(req: Request, res: Response): Promis
         }
         
     } catch (error) {
-        logger.error('Error marking game as started:', error);
+        console.log('Error marking game as started:', error);
         return res.status(500).json({ message: 'Failed to mark game as started' });
     }
 }
@@ -198,7 +198,7 @@ export async function handleSendGameDM(req: Request, res: Response): Promise<Res
         }
         
     } catch (error) {
-        logger.error('Error sending game DMs:', error);
+        console.log('Error sending game DMs:', error);
         return res.status(500).json({ message: 'Failed to send DMs' });
     }
 }
@@ -267,7 +267,7 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
         });
         
     } catch (error) {
-        logger.error('Error creating game signup:', error);
+        console.log('Error creating game signup:', error);
         return res.status(500).json({ message: 'Failed to create game signup' });
     }
 }
