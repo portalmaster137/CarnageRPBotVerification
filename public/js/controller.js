@@ -1,4 +1,4 @@
-// src/public/js/controller.js - Updated with mark as started functionality
+// src/public/js/controller.js - Updated with notification role functionality
 
 class ControllerDashboard {
     constructor() {
@@ -524,14 +524,14 @@ class ControllerDashboard {
                 <div class="form-checkbox-group">
                     <input 
                         type="checkbox" 
-                        id="pingEveryone" 
-                        name="pingEveryone"
+                        id="notifyRole" 
+                        name="notifyRole"
                         class="form-checkbox"
                     />
-                    <label for="pingEveryone">📢 Ping Everyone (@everyone)</label>
+                    <label for="notifyRole">🔔 Notify Game Notification Role</label>
                 </div>
                 <div class="form-help" style="margin-left: 23px; margin-top: -0.5rem;">
-                    This will notify all server members about the new game session
+                    This will ping users who have opted into game notifications using the verification button
                 </div>
                 
                 <div class="form-group">
@@ -569,7 +569,7 @@ class ControllerDashboard {
                 gameName: formData.get('gameName'),
                 discordTimestamp: formData.get('discordTimestamp'),
                 maxPlayers: parseInt(formData.get('maxPlayers')),
-                pingEveryone: formData.get('pingEveryone') === 'on',
+                notifyRole: formData.get('notifyRole') === 'on',
                 gameDescription: formData.get('gameDescription') || ''
             };
             
@@ -583,7 +583,7 @@ class ControllerDashboard {
                 const result = await response.json();
                 this.showSuccess(
                     'Game signup created successfully!' + 
-                    (gameData.pingEveryone ? ' Everyone has been notified.' : '')
+                    (gameData.notifyRole ? ' Users with notification role have been notified.' : '')
                 );
                 this.loadDashboardData(); // Refresh dashboard
             } else {

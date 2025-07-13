@@ -1,4 +1,4 @@
-// src/discord-bot.ts - Updated with game start functionality
+// src/discord-bot.ts - Updated with reaction role functionality
 import {
     Client,
     GatewayIntentBits,
@@ -30,13 +30,15 @@ export const client = new Client({
     ]
 });
 
+// Role ID for game notifications
+const GAME_NOTIFICATION_ROLE_ID = '1393971165957193889';
+
 // Enhanced interface for game signup tracking
 interface GameSignupData {
     gameName: string;
     timestamp: string;
     maxPlayers?: number;
     players: Set<string>; // Store user IDs
-    pingEveryone?: boolean;
     status: 'scheduled' | 'started' | 'completed'; // Added status tracking
 }
 
@@ -55,25 +57,40 @@ export async function sendPersistentButton(): Promise<void> {
         if (botMessages.size > 0) {
             await channel.bulkDelete(botMessages);
         }
-        const button = new ButtonBuilder()
+        
+        // Create both verification and notification role buttons
+        const verifyButton = new ButtonBuilder()
             .setCustomId('verify_account')
             .setLabel('Verify Account')
             .setStyle(ButtonStyle.Primary)
             .setEmoji('✅');
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+            
+        const notificationButton = new ButtonBuilder()
+            .setCustomId('toggle_game_notifications')
+            .setLabel('Game Notifications')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔔');
+        
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(verifyButton, notificationButton);
+        
         const embed = new EmbedBuilder()
             .setTitle('Account Verification')
-            .setDescription('Click the button below to verify your account and receive your role!')
+            .setDescription('Click the buttons below to verify your account and manage your notification preferences!')
             .setColor(0x5865F2)
             .addFields([
                 {
-                    name: 'How it works:',
+                    name: '✅ Account Verification:',
                     value: '1. Click the "Verify Account" button\n2. Check your DMs for a verification link\n3. Complete the OAuth2 process\n4. Receive your role automatically!',
+                    inline: false
+                },
+                {
+                    name: '🔔 Game Notifications:',
+                    value: 'Click "Game Notifications" to toggle notifications for new game sessions. This will add or remove the notification role that gets pinged when new games are scheduled.',
                     inline: false
                 }
             ]);
         await channel.send({ embeds: [embed], components: [row] });
-        logger.info('Persistent button sent successfully');
+        logger.info('Persistent button with notification role sent successfully');
     } catch (error) {
         console.log('Error sending persistent button:', error);
     }
@@ -182,16 +199,15 @@ async function updateGameSignupEmbed(message: Message, gameData: GameSignupData)
     }
 }
 
-export function addGameSignupMessage(messageId: string, gameName: string, timestamp: string, maxPlayers?: number, pingEveryone?: boolean): void {
+export function addGameSignupMessage(messageId: string, gameName: string, timestamp: string, maxPlayers?: number): void {
     gameSignupMessages.set(messageId, { 
         gameName, 
         timestamp, 
         maxPlayers,
         players: new Set<string>(),
-        pingEveryone,
         status: 'scheduled'
     });
-    logger.info(`Added game signup message tracking: ${messageId} - ${gameName}${maxPlayers ? ` (max: ${maxPlayers})` : ''}${pingEveryone ? ' with @everyone ping' : ''}`);
+    logger.info(`Added game signup message tracking: ${messageId} - ${gameName}${maxPlayers ? ` (max: ${maxPlayers})` : ''}`);
 }
 
 export function getActiveGameSignups(): Array<{
@@ -385,9 +401,47 @@ export function setupDiscordEventHandlers(): void {
             const robloxOAuthUrl = `${config.roblox.oauthUrl}&state=${state}`;
             await buttonInteraction.reply({
                 content: `Click the link to verify your account: [Verify Account](${robloxOAuthUrl})`,
-                flags: "Ephemeral"
+                flags: ["Ephemeral"]
             });
             logger.info(`Verification link sent to ${interaction.user.tag}`);
+        } else if (buttonInteraction.customId === 'toggle_game_notifications') {
+            try {
+                const guild = buttonInteraction.guild;
+                if (!guild) {
+                    await buttonInteraction.reply({
+                        content: 'This command can only be used in a server.',
+                        flags: ["Ephemeral"]
+                    });
+                    return;
+                }
+
+                const member = await guild.members.fetch(interaction.user.id);
+                const hasRole = member.roles.cache.has(GAME_NOTIFICATION_ROLE_ID);
+
+                if (hasRole) {
+                    // Remove the role
+                    await member.roles.remove(GAME_NOTIFICATION_ROLE_ID);
+                    await buttonInteraction.reply({
+                        content: '🔕 You will no longer receive notifications for new game sessions.',
+                        flags: ["Ephemeral"]
+                    });
+                    logger.info(`Removed game notification role from ${interaction.user.tag}`);
+                } else {
+                    // Add the role
+                    await member.roles.add(GAME_NOTIFICATION_ROLE_ID);
+                    await buttonInteraction.reply({
+                        content: '🔔 You will now receive notifications for new game sessions!',
+                        flags: ["Ephemeral"]
+                    });
+                    logger.info(`Added game notification role to ${interaction.user.tag}`);
+                }
+            } catch (error) {
+                console.log('Error toggling notification role:', error);
+                await buttonInteraction.reply({
+                    content: 'There was an error updating your notification preferences. Please try again later.',
+                    flags: ["Ephemeral"]
+                });
+            }
         }
     });
 
@@ -402,7 +456,7 @@ export function setupDiscordEventHandlers(): void {
                  if (!interaction.memberPermissions?.has('BanMembers')) {
                     return interaction.reply({
                         content: 'You do not have permission to use this command.',
-                        ephemeral: true
+                        flags: ["Ephemeral"]
                     });
                 }
                 const userId = interaction.options.getInteger('userid');
@@ -436,14 +490,14 @@ export function setupDiscordEventHandlers(): void {
                     console.log(`Error banning user ${userId}:`, error);
                     await interaction.reply({
                         content: `Failed to ban user with ID ${userId}.`,
-                        ephemeral: true
+                        flags: ["Ephemeral"]
                     });
                 }
                 
             } else {
                 await interaction.reply({
                     content: 'This command can only be used as a slash command.',
-                    ephemeral: true
+                    flags: ["Ephemeral"]
                 });
             }
         }
@@ -454,7 +508,7 @@ export function setupDiscordEventHandlers(): void {
                 if (!interaction.memberPermissions?.has('BanMembers')) {
                     return interaction.reply({
                         content: 'You do not have permission to use this command.',
-                        ephemeral: true
+                        flags: ["Ephemeral"]
                     });
                 }
                 try {
@@ -479,13 +533,13 @@ export function setupDiscordEventHandlers(): void {
                     console.log(`Error checking ban status for user ${userId}:`, error);
                     await interaction.reply({
                         content: `Failed to check ban status for user with ID ${userId}.`,
-                        ephemeral: true
+                        flags: ["Ephemeral"]
                     });
                 }
             } else {
                 await interaction.reply({
                     content: 'This command can only be used as a slash command.',
-                    ephemeral: true
+                    flags: ["Ephemeral"]
                 });
             }
         }
@@ -497,7 +551,7 @@ export function setupDiscordEventHandlers(): void {
                 if (!interaction.memberPermissions?.has('BanMembers')) {
                     return interaction.reply({
                         content: 'You do not have permission to use this command.',
-                        ephemeral: true
+                        flags: ["Ephemeral"]
                     });
                 }
                 try {

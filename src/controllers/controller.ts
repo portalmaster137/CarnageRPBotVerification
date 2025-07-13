@@ -1,4 +1,4 @@
-// src/controllers/controller.ts - Updated with mark as started functionality
+// src/controllers/controller.ts - Updated with notification role system
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { logger } from '../config';
@@ -9,6 +9,9 @@ export const CONTROLLER_PASSWORD = crypto.randomBytes(16).toString('hex');
 
 // Store active sessions (in production, use Redis or database)
 const activeSessions = new Set<string>();
+
+// Role ID for game notifications
+const GAME_NOTIFICATION_ROLE_ID = '1393971165957193889';
 
 // Generate session token
 function generateSessionToken(): string {
@@ -205,7 +208,7 @@ export async function handleSendGameDM(req: Request, res: Response): Promise<Res
 
 export async function handleCreateGameSignup(req: Request, res: Response): Promise<Response> {
     try {
-        const { gameName, discordTimestamp, maxPlayers, pingEveryone, gameDescription } = req.body;
+        const { gameName, discordTimestamp, maxPlayers, notifyRole, gameDescription } = req.body;
         
         // Validation
         if (!gameName || !discordTimestamp || !maxPlayers) {
@@ -248,22 +251,27 @@ export async function handleCreateGameSignup(req: Request, res: Response): Promi
             .setTimestamp()
             .setFooter({ text: 'CarnageRP Game Scheduler' });
         
-        const messageContent = pingEveryone ? '@everyone' : undefined;
+        // Create message content with optional role ping
+        let messageContent = undefined;
+        if (notifyRole) {
+            messageContent = `<@&${GAME_NOTIFICATION_ROLE_ID}>`;
+        }
+        
         const message = await (channel as TextChannel).send({ 
             content: messageContent,
             embeds: [embed] 
         });
         
         await message.react('🎮');
-        addGameSignupMessage(message.id, gameName, discordTimestamp, maxPlayers, pingEveryone);
+        addGameSignupMessage(message.id, gameName, discordTimestamp, maxPlayers);
         
-        logger.info(`Game signup created: ${gameName} at ${discordTimestamp} (max ${maxPlayers} players)${pingEveryone ? ' with @everyone ping' : ''}`);
+        logger.info(`Game signup created: ${gameName} at ${discordTimestamp} (max ${maxPlayers} players)${notifyRole ? ' with role notification' : ''}`);
         
         return res.json({ 
             message: 'Game signup created successfully',
             messageId: message.id,
             channelId: channel.id,
-            pingEveryone: pingEveryone || false
+            notifyRole: notifyRole || false
         });
         
     } catch (error) {
