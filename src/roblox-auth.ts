@@ -7,7 +7,7 @@ export async function handleRobloxAuth(req: Request, res: Response): Promise<Res
     const { code, state } = req.query;
     
     if (!code || !state) {
-        return res.status(400).send('Missing parameter.');
+        return res.status(400).send('Missing required oauth parameter.');
     }
 
     let userId: string | undefined;
