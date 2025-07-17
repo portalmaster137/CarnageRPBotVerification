@@ -488,6 +488,16 @@ export function setupDiscordEventHandlers(): void {
                     });
                 } catch (error) {
                     console.log(`Error banning user ${userId}:`, error);
+                    let _check = error as any;
+                    if (_check.data.code === 'RESOURCE_EXHAUSTED') {
+                        logger.error(`Resource exhausted error while banning user ${userId}: ${_check.data.message}`);
+                        await interaction.reply({
+                            content: `Ban Resource exhausted. Please try again in a few minutes.`,
+                            flags: ["Ephemeral"]
+                        });
+                        return;
+                    }
+                    // if the error's data.code is 'RESOURCE_EXHAUSTED', it means theres been too many  requests for the user
                     await interaction.reply({
                         content: `Failed to ban user with ID ${userId}.`,
                         flags: ["Ephemeral"]
@@ -531,6 +541,15 @@ export function setupDiscordEventHandlers(): void {
                     }
                 } catch (error) {
                     console.log(`Error checking ban status for user ${userId}:`, error);
+                    let _check = error as any;
+                    if (_check.data.code === 'RESOURCE_EXHAUSTED') {
+                        logger.error(`Resource exhausted error while banning user ${userId}: ${_check.data.message}`);
+                        await interaction.reply({
+                            content: `Ban Resource exhausted. Please try again in a few minutes.`,
+                            flags: ["Ephemeral"]
+                        });
+                        return;
+                    }
                     await interaction.reply({
                         content: `Failed to check ban status for user with ID ${userId}.`,
                         flags: ["Ephemeral"]
@@ -570,6 +589,15 @@ export function setupDiscordEventHandlers(): void {
                     });
                 } catch (error) {
                     console.log(`Error unbanning user ${userId}:`, error);
+                    let _check = error as any;
+                    if (_check.data.code === 'RESOURCE_EXHAUSTED') {
+                        logger.error(`Resource exhausted error while banning user ${userId}: ${_check.data.message}`);
+                        await interaction.reply({
+                            content: `Ban Resource exhausted. Please try again in a few minutes.`,
+                            flags: ["Ephemeral"]
+                        });
+                        return;
+                    }
                     await interaction.reply({
                         content: `Failed to unban user with ID ${userId}.`,
                         flags: ["Ephemeral"]
